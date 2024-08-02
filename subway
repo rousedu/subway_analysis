@@ -1,0 +1,227 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+
+# Load data
+data_cleaned = pd.read_csv('/mnt/data/df_all.csv')
+
+# Data Preprocessing
+# Dropping unnecessary columns and handling missing values
+data_cleaned = data_cleaned.drop(columns=['Unnamed: 0.1', 'Unnamed: 0', '站点.1', 'Line_y', '类型_y', '出口数量_y', '角度分区.1', '最终'])
+data_cleaned['站台面积'].fillna(data_cleaned['站台面积'].mean(), inplace=True)
+data_cleaned['站厅面积'].fillna(data_cleaned['站厅面积'].mean(), inplace=True)
+data_cleaned['出入口数量'].fillna(data_cleaned['出入口数量'].mean(), inplace=True)
+data_cleaned['风亭数量'].fillna(data_cleaned['风亭数量'].mean(), inplace=True)
+
+# Convert date column to datetime format
+data_cleaned['日期'] = pd.to_datetime(data_cleaned['日期'])
+
+# Temperature Clustering Analysis
+# Standardize the temperature data
+scaler = StandardScaler()
+scaled_temperature_data = scaler.fit_transform(data_cleaned[['温度']])
+
+# KMeans clustering for temperature data
+kmeans_temp = KMeans(n_clusters=3, random_state=42)
+data_cleaned['温度聚类'] = kmeans_temp.fit_predict(scaled_temperature_data)
+
+# Plot temperature clusters
+plt.figure(figsize=(10, 6))
+plt.scatter(data_cleaned['日期'], data_cleaned['温度'], c=data_cleaned['温度聚类'], cmap='viridis')
+plt.xlabel('Date')
+plt.ylabel('Temperature (°C)')
+plt.title('Temperature Clustering')
+plt.colorbar(label='Cluster')
+plt.show()
+
+# Humidity Clustering Analysis
+# Standardize the humidity data
+scaled_humidity_data = scaler.fit_transform(data_cleaned[['湿度']])
+
+# KMeans clustering for humidity data
+kmeans_hum = KMeans(n_clusters=3, random_state=42)
+data_cleaned['湿度聚类'] = kmeans_hum.fit_predict(scaled_humidity_data)
+
+# Plot humidity clusters
+plt.figure(figsize=(10, 6))
+plt.scatter(data_cleaned['日期'], data_cleaned['湿度'], c=data_cleaned['湿度聚类'], cmap='viridis')
+plt.xlabel('Date')
+plt.ylabel('Humidity')
+plt.title('Humidity Clustering')
+plt.colorbar(label='Cluster')
+plt.show()
+
+# Weather Impact on Temperature and Humidity
+# Group by weather condition and calculate mean and std
+weather_stats = data_cleaned.groupby('天气')[['温度', '湿度']].agg(['mean', 'std'])
+
+# Plot weather impact on temperature and humidity
+plt.figure(figsize=(14, 6))
+
+plt.subplot(1, 2, 1)
+weather_stats['温度']['mean'].plot(kind='bar', color='lightblue')
+plt.title('Mean Temperature by Weather')
+plt.ylabel('Temperature (°C)')
+plt.xticks(rotation=45)
+
+plt.subplot(1, 2, 2)
+weather_stats['湿度']['mean'].plot(kind='bar', color='lightgreen')
+plt.title('Mean Humidity by Weather')
+plt.ylabel('Humidity')
+plt.xticks(rotation=45)
+
+plt.tight_layout()
+plt.show()
+
+# Seasonal Impact on Temperature and Humidity
+# Assign season based on the month
+def assign_season(date):
+    month = date.month
+    if month in [3, 4, 5]:
+        return 'Spring'
+    elif month in [6, 7, 8]:
+        return 'Summer'
+    elif month in [9, 10, 11]:
+        return 'Autumn'
+    else:
+        return 'Winter'
+
+data_cleaned['季节'] = data_cleaned['日期'].apply(assign_season)
+seasonal_stats = data_cleaned.groupby('季节')[['温度', '湿度']].agg(['mean', 'std'])
+
+# Plot seasonal impact on temperature and humidity
+plt.figure(figsize=(14, 6))
+
+plt.subplot(1, 2, 1)
+seasonal_stats['温度']['mean'].plot(kind='bar', color='orange')
+plt.title('Mean Temperature by Season')
+plt.ylabel('Temperature (°C)')
+plt.xticks(rotation=45)
+
+plt.subplot(1, 2, 2)
+seasonal_stats['湿度']['mean'].plot(kind='bar', color='purple')
+plt.title('Mean Humidity by Season')
+plt.ylabel('Humidity')
+plt.xticks(rotation=45)
+
+plt.tight_layout()
+plt.show()
+
+# Internal vs External Temperature Over Time
+plt.figure(figsize=(12, 6))
+plt.plot(data_cleaned['日期'], data_cleaned['温度'], label='Internal Temperature', color='red')
+plt.plot(data_cleaned['日期'], data_cleaned['大气温度'], label='External Temperature', color='blue', linestyle='--')
+plt.xlabel('Date')
+plt.ylabel('Temperature (°C)')
+plt.title('Internal vs External Temperature Over Time')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+# Non-AC Season Analysis (Sept 30 to June 30)
+non_ac_season_data = data_cleaned[(data_cleaned['日期'].dt.month >= 9) | (data_cleaned['日期'].dt.month <= 6)]
+non_ac_temp_humidity_stats = non_ac_season_data[['温度', '湿度']].describe()
+
+# Plot Non-AC season temperature and humidity
+plt.figure(figsize=(14, 6))
+
+plt.subplot(1, 2, 1)
+non_ac_temp_humidity_stats['温度'].plot(kind='bar', color='skyblue')
+plt.title('Non-AC Season Temperature Statistics')
+plt.ylabel('Temperature (°C)')
+plt.xticks(rotation=0)
+
+plt.subplot(1, 2, 2)
+non_ac_temp_humidity_stats['湿度'].plot(kind='bar', color='orange')
+plt.title('Non-AC Season Humidity Statistics')
+plt.ylabel('Humidity')
+plt.xticks(rotation=0)
+
+plt.tight_layout()
+plt.show()
+
+# AC Season Analysis (June 30 to Sept 30)
+ac_season_data = data_cleaned[(data_cleaned['日期'].dt.month > 6) & (data_cleaned['日期'].dt.month <= 9)]
+ac_temp_humidity_stats = ac_season_data[['温度', '湿度']].describe()
+
+# Plot AC season temperature and humidity
+plt.figure(figsize=(14, 6))
+
+plt.subplot(1, 2, 1)
+ac_temp_humidity_stats['温度'].plot(kind='bar', color='lightgreen')
+plt.title('AC Season Temperature Statistics')
+plt.ylabel('Temperature (°C)')
+plt.xticks(rotation=0)
+
+plt.subplot(1, 2, 2)
+ac_temp_humidity_stats['湿度'].plot(kind='bar', color='lightcoral')
+plt.title('AC Season Humidity Statistics')
+plt.ylabel('Humidity')
+plt.xticks(rotation=0)
+
+plt.tight_layout()
+plt.show()
+
+# Depth vs Temperature and Humidity Analysis
+depth_temp_humidity_stats = data_cleaned.groupby('总埋深')[['温度', '湿度']].agg(['mean', 'std'])
+
+# Plot depth impact on temperature and humidity
+plt.figure(figsize=(14, 6))
+
+plt.subplot(1, 2, 1)
+depth_temp_humidity_stats['温度']['mean'].plot(kind='bar', color='lightblue')
+plt.title('Mean Temperature by Depth')
+plt.ylabel('Temperature (°C)')
+plt.xticks(rotation=45)
+
+plt.subplot(1, 2, 2)
+depth_temp_humidity_stats['湿度']['mean'].plot(kind='bar', color='lightgreen')
+plt.title('Mean Humidity by Depth')
+plt.ylabel('Humidity')
+plt.xticks(rotation=45)
+
+plt.tight_layout()
+plt.show()
+
+# Orientation vs Temperature and Humidity Analysis
+orientation_temp_humidity_stats = data_cleaned.groupby('总平面偏角（西为0°）')[['温度', '湿度']].agg(['mean', 'std'])
+
+# Plot orientation impact on temperature and humidity
+plt.figure(figsize=(14, 6))
+
+plt.subplot(1, 2, 1)
+orientation_temp_humidity_stats['温度']['mean'].plot(kind='bar', color='orange')
+plt.title('Mean Temperature by Orientation')
+plt.ylabel('Temperature (°C)')
+plt.xticks(rotation=45)
+
+plt.subplot(1, 2, 2)
+orientation_temp_humidity_stats['湿度']['mean'].plot(kind='bar', color='purple')
+plt.title('Mean Humidity by Orientation')
+plt.ylabel('Humidity')
+plt.xticks(rotation=45)
+
+plt.tight_layout()
+plt.show()
+
+# Exit Type vs Temperature and Humidity Analysis
+exit_type_temp_humidity_stats = data_cleaned.groupby('出口数量_x')[['温度', '湿度']].agg(['mean', 'std'])
+
+# Plot exit type impact on temperature and humidity
+plt.figure(figsize=(14, 6))
+
+plt.subplot(1, 2, 1)
+exit_type_temp_humidity_stats['温度']['mean'].plot(kind='bar', color='red')
+plt.title('Mean Temperature by Exit Type')
+plt.ylabel('Temperature (°C)')
+plt.xticks(rotation=45)
+
+plt.subplot(1, 2, 2)
+exit_type_temp_humidity_stats['湿度']['mean'].plot(kind='bar', color='blue')
+plt.title('Mean Humidity by Exit Type')
+plt.ylabel('Humidity')
+plt.xticks(rotation=45)
+
+plt.tight_layout()
+plt.show()
