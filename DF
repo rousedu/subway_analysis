@@ -1,0 +1,57 @@
+import numpy as np
+import pandas as pd
+from scipy.spatial.distance import euclidean
+
+def discrete_frechet_distance(P, Q, dfcn=euclidean):
+    sP = P.shape
+    sQ = Q.shape
+
+    if sP[1] != sQ[1]:
+        raise ValueError('Curves P and Q must have the same dimensions.')
+    elif sP[0] == 0:
+        return 0, []
+
+    CA = -1 * np.ones((sP[0], sQ[0]))
+
+    def c(i, j):
+        if CA[i, j] > -1:
+            return CA[i, j]
+        elif i == 0 and j == 0:
+            CA[i, j] = dfcn(P[0], Q[0])
+        elif i > 0 and j == 0:
+            CA[i, j] = max(c(i - 1, 0), dfcn(P[i], Q[0]))
+        elif i == 0 and j > 0:
+            CA[i, j] = max(c(0, j - 1), dfcn(P[0], Q[j]))
+        elif i > 0 and j > 0:
+            CA[i, j] = max(min(c(i - 1, j), c(i - 1, j - 1), c(i, j - 1)), dfcn(P[i], Q[j]))
+        else:
+            CA[i, j] = float('inf')
+        return CA[i, j]
+
+    cm = c(sP[0] - 1, sQ[0] - 1)
+
+    # Optional: Compute the coupling sequence (not fully implemented)
+    cSq = []
+    return cm, cSq
+
+# Load Excel file
+file_path = 'D:/DSB2023620/Data/newall,955.xls'
+data = pd.read_excel(file_path, sheet_name=11, header=None)  # Note: sheet_name in pandas is 0-indexed
+
+# Extract the reference curve
+Q = data.iloc[0, :77].to_numpy()
+
+# Initialize result matrix
+Result = np.zeros((134, 385))
+
+# Calculate the discrete Frechet distance
+for p_index in range(2, 134):
+    P = data.iloc[p_index, :77].to_numpy()
+    cm, cSq = discrete_frechet_distance(P, Q)
+    Result[p_index, 0] = cm
+
+# Save the results to an Excel file
+output_file = '2024521.xlsx'
+output_df = pd.DataFrame(Result)
+output_df.to_excel(output_file, index=False)
+
